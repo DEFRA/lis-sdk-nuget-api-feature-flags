@@ -1,0 +1,31 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!-- Packability-->
+  <PropertyGroup>
+    <IsPackable>True</IsPackable>
+  </PropertyGroup>
+
+  <!-- Package Information-->
+  <PropertyGroup>
+    <Title>Defra Livestock API SDK - Feature Flags</Title>
+    <Description>Feature Flags</Description>
+    <RepositoryUrl>https://github.com/DEFRA/lis-sdk-nuget-api-feature-flags</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <!-- Version Information-->
+  <PropertyGroup>
+    <Version>0.1.0-prerelease.1</Version>
+  </PropertyGroup>
+
+  <!-- Packages-->
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+</Project>

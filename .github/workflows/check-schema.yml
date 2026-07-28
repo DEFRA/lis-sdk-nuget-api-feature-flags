@@ -1,0 +1,60 @@
+name: Check Liquibase Schema
+
+on:
+  pull_request:
+
+env:
+  POSTGRES_USER: identity_service_helper_ddl
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: identity_service_helper
+
+  LB_VER: 5.0.1
+  CHANGELOG: db.changelog.xml
+
+jobs:
+  liquibase-update:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U liquibase"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Liquibase
+        run: |
+          mkdir -p ./liquibase
+          curl -sL "https://github.com/liquibase/liquibase/releases/download/v${LB_VER}/liquibase-${LB_VER}.tar.gz" | tar xz -C ./liquibase
+          ./liquibase/liquibase lpm add postgresql
+
+      - name: Validate Liquibase changelog
+        run: |
+          ./liquibase/liquibase \
+            --url=jdbc:postgresql://localhost:5432/${POSTGRES_DB} \
+            --username=${POSTGRES_USER} \
+            --password=${POSTGRES_PASSWORD} \
+            --search-path=./changelog \
+            --changelog-file=${CHANGELOG} \
+            validate
+
+      - name: Run Liquibase update
+        run: |
+          ./liquibase/liquibase \
+            --url=jdbc:postgresql://localhost:5432/${POSTGRES_DB} \
+            --username=${POSTGRES_USER} \
+            --password=${POSTGRES_PASSWORD} \
+            --search-path=./changelog \
+            --changelog-file=${CHANGELOG} \
+            update

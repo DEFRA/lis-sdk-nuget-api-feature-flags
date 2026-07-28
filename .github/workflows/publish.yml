@@ -1,45 +1,43 @@
-name: "Publish NuGet"
+name: Publish
 
 on:
-  workflow_call:
-    inputs:
-      version:
-        required: true
-        type: string
-    secrets:
-      NUGET_USERNAME:
-        required: true
+  push:
+    branches:
+      - main
 
 permissions:
-  contents: read
   id-token: write
+  contents: write
+  pull-requests: write
+
+env:
+  AWS_REGION: eu-west-2
+  AWS_ACCOUNT_ID: "094954420758"
 
 jobs:
-  publish-nuget:
-    name: "Publish NuGet"
+  sonarcloud-scan:
+    name: CDP SonarCloud Scan
+    uses: ./.github/workflows/sonarcloud.yml
+    secrets: inherit
+
+  build:
+    if: github.run_number != 1
+    name: CDP-build-workflow
+    needs: sonarcloud-scan
     runs-on: ubuntu-latest
-    environment: release
     steps:
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Check out code
+        uses: actions/checkout@v4
         with:
-          dotnet-version: '10.0.x'
-
-      - name: Download NuGet packages
-        uses: actions/download-artifact@v4
+          fetch-depth: 0
+          
+      - name: Build and Publish
+        uses: DEFRA/cdp-build-action/build@main
         with:
-          name: nuget-packages
-          path: artifacts
-
-      - name: NuGet trusted publishing login
-        id: nuget-login
-        uses: NuGet/login@v1
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Publish Database Schema
+        uses: DEFRA/cdp-build-action/publish-db-migrations@main
         with:
-          user: ${{ secrets.NUGET_USERNAME }}
-
-      - name: Push to NuGet.org
-        run: |
-          dotnet nuget push "artifacts/*.nupkg" \
-            --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
-            --source "https://api.nuget.org/v3/index.json" \
-            --skip-duplicate
+          path: ./changelog
+          github-token: ${{ secrets.GITHUB_TOKEN }}

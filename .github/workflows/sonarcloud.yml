@@ -1,0 +1,93 @@
+name: Run SonarCloud coverage scan
+
+on:
+  workflow_call:
+    secrets:
+      SONAR_TOKEN:
+        description: "SonarCloud token used for authentication"
+        required: true
+        
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  build:
+    if: github.run_number != 1
+    name: CDP SonarCloud coverage scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: "zulu"
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up .NET 10.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~/sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+      - name: Cache SonarCloud scanner
+        id: cache-sonar-scanner
+        uses: actions/cache@v4
+        with:
+          path: ./.sonar/scanner
+          key: ${{ runner.os }}-sonar-scanner
+          restore-keys: ${{ runner.os }}-sonar-scanner
+      - name: Cache dotNet code coverage
+        id: cache-sonar-coverage
+        uses: actions/cache@v4
+        with:
+          path: ./.sonar/coverage
+          key: ${{ runner.os }}-sonar-coverage
+          restore-keys: ${{ runner.os }}-sonar-coverage
+      - name: Cache Cake tool
+        id: cache-cake
+        uses: actions/cache@v4
+        with:
+          path: ./.sonar/cake
+          key: ${{ runner.os }}-cake
+          restore-keys: ${{ runner.os }}-cake
+      - name: Install Cake tool
+        if: steps.cache-cake.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ./.sonar/cake
+          dotnet tool update Cake.Tool --tool-path ./.sonar/cake
+      - name: Install SonarCloud scanner
+        if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ./.sonar/scanner
+          dotnet tool update dotnet-sonarscanner --tool-path ./.sonar/scanner
+      - name: Install dotNet code coverage
+        if: steps.cache-sonar-coverage.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ./.sonar/coverage
+          dotnet tool update dotnet-coverage --tool-path ./.sonar/coverage
+      - name: Extract short SHA
+        id: shortsha
+        shell: bash
+        run: |
+          echo "shortsha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+      - name: Build and analyze
+        if: github.actor != 'dependabot[bot]'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_VERSION: ${{ steps.shortsha.outputs.shortsha }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          DOTNET_ENVIRONMENT: Development
+          ASPNETCORE_ENVIRONMENT: Development
+        run: |
+            export SONAR_SCANNER_PATH=$(pwd)/.sonar/scanner/dotnet-sonarscanner
+            export DOTNET_COVERAGE_PATH=$(pwd)/.sonar/coverage/dotnet-coverage
+            ./.sonar/cake/dotnet-cake --target=Sonar --configuration=Release --sonarscannerpath="$SONAR_SCANNER_PATH" --dotnetcoveragepath="$DOTNET_COVERAGE_PATH"

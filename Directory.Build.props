@@ -15,18 +15,12 @@
   <PropertyGroup>
     <IsPackable>False</IsPackable>
   </PropertyGroup>
-  
+
   <!-- Supressions-->
   <PropertyGroup>
     <!-- Suppress NU1507: There are 2 package sources defined in your configuration. When using central package management, please map your package sources with package source mapping or specify a single package source. -->
     <NoWarn>$(NoWarn);NU1507</NoWarn>
   </PropertyGroup>
-
-  <!-- global packages-->
-  <ItemGroup>
-    <Using Include="Microsoft" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-  </ItemGroup>
 
   <!-- Code analysis packages and configuration-->
   <ItemGroup>

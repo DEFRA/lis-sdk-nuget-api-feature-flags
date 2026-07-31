@@ -276,3 +276,6 @@ coverage/
 # Agents
 .ai/
 .junie/
+
+# Test Harness
+harness/

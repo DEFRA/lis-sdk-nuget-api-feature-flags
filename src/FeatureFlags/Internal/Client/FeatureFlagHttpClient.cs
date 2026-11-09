@@ -11,7 +11,10 @@ using Defra.Livestock.Sdk.Api.FeatureFlags.Internal.Client.Contract.Responses;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-internal class FeatureFlagHttpClient : IFeatureFlagHttpClient
+/// <summary>
+/// HTTP client for the Feature Flag API.
+/// </summary>
+internal partial class FeatureFlagHttpClient : IFeatureFlagHttpClient
 {
     private const string FailedToDeserializeResponse = "Failed to deserialize response";
 
@@ -40,17 +43,18 @@ internal class FeatureFlagHttpClient : IFeatureFlagHttpClient
     {
         var relativeUrl = $"evaluate/{Uri.EscapeDataString(groupName)}";
 
-        logger.LogInformation(
-            "Sending request to Feature Flag API. BaseUrl: {BaseUrl}, RelativeUrl: {RelativeUrl}, GroupName: {GroupName}",
-            options.Value.BaseUrl,
-            relativeUrl,
-            groupName);
+        LogSendingGroupRequest(logger, groupName);
 
         var httpRequest = new HttpRequestMessage(HttpMethod.Get, new Uri($"{options.Value.BaseUrl}/{relativeUrl}", UriKind.Absolute));
 
         AddHeaders(httpRequest);
 
         using var httpResponse = await client.SendAsync(httpRequest, cancellationToken);
+
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            LogGroupRequestFailed(logger, (int)httpResponse.StatusCode, groupName);
+        }
 
         httpResponse.EnsureSuccessStatusCode();
 
@@ -67,18 +71,18 @@ internal class FeatureFlagHttpClient : IFeatureFlagHttpClient
     {
         var relativeUrl = $"evaluate/{Uri.EscapeDataString(groupName)}/{Uri.EscapeDataString(flagName)}";
 
-        logger.LogInformation(
-            "Sending request to Feature Flag API. BaseUrl: {BaseUrl}, RelativeUrl: {RelativeUrl}, GroupName: {GroupName}, FlagName: {FlagName}",
-            options.Value.BaseUrl,
-            relativeUrl,
-            groupName,
-            flagName);
+        LogSendingFlagRequest(logger, groupName, flagName);
 
         var httpRequest = new HttpRequestMessage(HttpMethod.Get, new Uri($"{options.Value.BaseUrl}/{relativeUrl}", UriKind.Absolute));
 
         AddHeaders(httpRequest);
 
         using var httpResponse = await client.SendAsync(httpRequest, cancellationToken);
+
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            LogFlagRequestFailed(logger, (int)httpResponse.StatusCode, groupName, flagName);
+        }
 
         httpResponse.EnsureSuccessStatusCode();
 

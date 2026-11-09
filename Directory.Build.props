@@ -7,8 +7,8 @@
     <RootNamespace>Defra.Livestock.Sdk.Api.$(MSBuildProjectName)</RootNamespace>
     <AssemblyName>$(RootNamespace)</AssemblyName>
     <Authors>Defra Livestock Information System</Authors>
-    <Copyright>Copyright (c) Defra. All rights reserved.</Copyright>
-    <PackageTags>lis-sdk lis-sdk-nuget lis-sdk-nuget-api</PackageTags>
+    <Copyright>Copyright © Defra $([System.DateTime]::Now.ToString("yyyy")).</Copyright>
+    <PackageTags>lis-sdk lis-sdk-nuget;lis-sdk-nuget-api;</PackageTags>
   </PropertyGroup>
 
   <!-- Packability-->

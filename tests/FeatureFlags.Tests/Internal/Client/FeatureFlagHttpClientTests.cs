@@ -24,6 +24,7 @@ public class FeatureFlagHttpClientTests
     {
         options = Substitute.For<IOptions<FeatureFlagOptions>>();
         logger = Substitute.For<ILogger<FeatureFlagHttpClient>>();
+        logger.IsEnabled(Arg.Any<LogLevel>()).Returns(true);
 
         options.Value.Returns(new FeatureFlagOptions
         {
@@ -82,13 +83,13 @@ public class FeatureFlagHttpClientTests
         result.FlagEnabled.ShouldBeTrue();
 
         logger.Received(1).Log(
-            LogLevel.Information,
+            LogLevel.Debug,
             Arg.Any<EventId>(),
             Arg.Is<object>(v =>
-                v.ToString()!.Contains(
-                    "Sending request to Feature Flag API. BaseUrl: https://example.com/, RelativeUrl: evaluate/TestGroup/TestFlag, GroupName: TestGroup, FlagName: TestFlag")),
+                v.ToString() == "Sending request to Feature Flag API. GroupName: TestGroup, FlagName: TestFlag"),
             null,
             Arg.Any<Func<object, Exception?, string>>());
+        AssertNothingLoggedAtOrAbove(LogLevel.Information);
     }
 
     [Fact]
@@ -229,13 +230,12 @@ public class FeatureFlagHttpClientTests
         result.GroupEnabled.ShouldBeTrue();
 
         logger.Received(1).Log(
-            LogLevel.Information,
+            LogLevel.Debug,
             Arg.Any<EventId>(),
-            Arg.Is<object>(v =>
-                v.ToString()!.Contains(
-                    "Sending request to Feature Flag API. BaseUrl: https://example.com/, RelativeUrl: evaluate/TestGroup, GroupName: TestGroup")),
+            Arg.Is<object>(v => v.ToString() == "Sending request to Feature Flag API. GroupName: TestGroup"),
             null,
             Arg.Any<Func<object, Exception?, string>>());
+        AssertNothingLoggedAtOrAbove(LogLevel.Information);
     }
 
     [Fact]
@@ -500,6 +500,59 @@ public class FeatureFlagHttpClientTests
         await featureFlagHttpClient.GetFeatureFlagStatusAsync("G", "F", TestContext.Current.CancellationToken);
 
         // Assert - handled in handler
+    }
+
+    [Fact]
+    public async Task GetFeatureFlagStatusAsync_ShouldLogWarningWithStatusCode_WhenApiReturnsNonSuccess()
+    {
+        // Arrange
+        options.Value.WithCorrelationId(() => correlationId);
+
+        var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        var featureFlagHttpClient = new FeatureFlagHttpClient(new HttpClient(handler), this.options, this.logger);
+
+        // Act
+        await Should.ThrowAsync<HttpRequestException>(() =>
+            featureFlagHttpClient.GetFeatureFlagStatusAsync("TestGroup", "TestFlag", TestContext.Current.CancellationToken));
+
+        // Assert
+        logger.Received(1).Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Is<object>(v =>
+                v.ToString() == "Feature Flag API returned status code 503. GroupName: TestGroup, FlagName: TestFlag"),
+            null,
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public async Task GetFeatureFlagGroupStatusAsync_ShouldLogWarningWithStatusCode_WhenApiReturnsNonSuccess()
+    {
+        // Arrange
+        options.Value.WithCorrelationId(() => correlationId);
+
+        var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var featureFlagHttpClient = new FeatureFlagHttpClient(new HttpClient(handler), this.options, this.logger);
+
+        // Act
+        await Should.ThrowAsync<HttpRequestException>(() =>
+            featureFlagHttpClient.GetFeatureFlagGroupStatusAsync("TestGroup", TestContext.Current.CancellationToken));
+
+        // Assert
+        logger.Received(1).Log(
+            LogLevel.Warning,
+            Arg.Any<EventId>(),
+            Arg.Is<object>(v => v.ToString() == "Feature Flag API returned status code 404. GroupName: TestGroup"),
+            null,
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    private void AssertNothingLoggedAtOrAbove(LogLevel minimumLevel)
+    {
+        logger.ReceivedCalls()
+            .Where(c => c.GetMethodInfo().Name == nameof(ILogger.Log))
+            .Select(c => (LogLevel)c.GetArguments()[0]!)
+            .ShouldAllBe(level => level < minimumLevel);
     }
 
     private class TestHttpMessageHandler : HttpMessageHandler
